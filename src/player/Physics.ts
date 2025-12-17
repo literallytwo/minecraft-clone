@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { world } from '../world/World';
-import { PLAYER_WIDTH, PLAYER_HEIGHT, GRAVITY, WATER_GRAVITY, WATER_MAX_SINK_SPEED, WATER_MAX_SWIM_SPEED, WATER_MAX_HORIZONTAL_SPEED, WATER_DRAG } from '../utils/constants';
+import { PLAYER_WIDTH, PLAYER_HEIGHT, GRAVITY, WATER_GRAVITY, WATER_MAX_SWIM_SPEED, WATER_MAX_HORIZONTAL_SPEED, WATER_DRAG } from '../utils/constants';
 
 // simple AABB collision detection with voxels
 export function resolveCollisions(
@@ -74,8 +74,11 @@ export function applyGravity(velocity: THREE.Vector3, deltaTime: number): void {
 }
 
 export function applyWaterPhysics(velocity: THREE.Vector3, deltaTime: number): void {
-  // apply drag first - velocity decays over time in water
-  const dragFactor = Math.exp(-WATER_DRAG * deltaTime);
+  // apply drag - higher speeds get more drag (quadratic-ish feel for falling fast into water)
+  // base drag handles normal swimming, extra drag kicks in at high velocities
+  const speed = velocity.length();
+  const effectiveDrag = WATER_DRAG + Math.max(0, speed - 5) * 0.5; // extra drag above 5 m/s
+  const dragFactor = Math.exp(-effectiveDrag * deltaTime);
   velocity.x *= dragFactor;
   velocity.y *= dragFactor;
   velocity.z *= dragFactor;
@@ -83,8 +86,7 @@ export function applyWaterPhysics(velocity: THREE.Vector3, deltaTime: number): v
   // apply water gravity (buoyancy counteracted by slight sinking)
   velocity.y -= WATER_GRAVITY * deltaTime;
 
-  // clamp vertical velocity
-  velocity.y = Math.max(velocity.y, WATER_MAX_SINK_SPEED);
+  // only clamp upward swim speed, let drag handle slowing down from fast falls
   velocity.y = Math.min(velocity.y, WATER_MAX_SWIM_SPEED);
 
   // clamp horizontal velocity
