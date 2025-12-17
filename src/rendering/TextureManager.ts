@@ -69,6 +69,7 @@ class TextureManager {
     this.material = new THREE.MeshLambertMaterial({
       map: this.textureAtlas,
       side: THREE.FrontSide,
+      vertexColors: true,
     });
 
     this.waterMaterial = new THREE.MeshLambertMaterial({
@@ -77,6 +78,7 @@ class TextureManager {
       transparent: true,
       opacity: 0.7,
       depthWrite: false,
+      vertexColors: true,
     });
   }
 
