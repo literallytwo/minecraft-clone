@@ -8,12 +8,23 @@
   </head>
   <body>
     <div id="loading">loading...</div>
-    <div id="instructions" style="display: none;">
+    <div id="main-menu" class="menu-overlay" style="display: none;">
       <h1>minecraft clone</h1>
-      <p>click to play</p>
-      <p>WASD - move | SPACE - jump | MOUSE - look</p>
-      <p>LEFT CLICK - break | RIGHT CLICK - place</p>
-      <p>1-8 - select block type</p>
+      <div class="menu-controls">
+        <p>WASD - move | SPACE - jump | MOUSE - look</p>
+        <p>LEFT CLICK - break | RIGHT CLICK - place</p>
+        <p>1-8 - select block type | ESC - pause</p>
+      </div>
+      <div class="menu-buttons">
+        <button id="btn-singleplayer" class="menu-btn">Singleplayer</button>
+      </div>
+    </div>
+    <div id="pause-menu" class="menu-overlay" style="display: none;">
+      <h1>Game Paused</h1>
+      <div class="menu-buttons">
+        <button id="btn-resume" class="menu-btn">Resume</button>
+        <button id="btn-back-to-menu" class="menu-btn">Back to Menu</button>
+      </div>
     </div>
     <div id="crosshair" style="display: none;">+</div>
     <div id="coords" style="display: none;"></div>

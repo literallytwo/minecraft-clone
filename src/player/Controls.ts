@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { gameScene } from '../rendering/Scene';
+import { gameState } from '../state/GameState';
 
 class Controls {
   private keys: Set<string> = new Set();
@@ -19,15 +20,23 @@ class Controls {
       this.keys.delete(e.code.toLowerCase());
     });
 
-    // mouse lock
-    document.addEventListener('click', () => {
-      if (!this.isLocked) {
-        gameScene.renderer.domElement.requestPointerLock();
+    // pointer lock state tracking
+    document.addEventListener('pointerlockchange', () => {
+      this.isLocked = document.pointerLockElement === gameScene.renderer.domElement;
+
+      // if pointer lock was lost while playing, go to paused state
+      if (!this.isLocked && gameState.isPlaying()) {
+        gameState.setState('paused');
       }
     });
 
-    document.addEventListener('pointerlockchange', () => {
-      this.isLocked = document.pointerLockElement === gameScene.renderer.domElement;
+    // ESC key handling - browser automatically exits pointer lock on ESC,
+    // but we need to ensure we go to paused (not main menu)
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape' && gameState.isPlaying()) {
+        // browser will handle exiting pointer lock, we just ensure state is set
+        gameState.setState('paused');
+      }
     });
 
     // mouse movement

@@ -177,6 +177,16 @@ class World {
     }
     return 30;
   }
+
+  // reset the world - clears all chunks
+  reset(): void {
+    for (const chunk of this.chunks.values()) {
+      if (chunk.mesh) gameScene.remove(chunk.mesh);
+      if (chunk.waterMesh) gameScene.remove(chunk.waterMesh);
+      chunk.dispose();
+    }
+    this.chunks.clear();
+  }
 }
 
 export const world = new World();
