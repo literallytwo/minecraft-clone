@@ -31,6 +31,13 @@ async function init() {
       player.spawn();
       worldInitialized = true;
     }
+
+    // reset world when returning to main menu
+    if (state === 'main_menu' && worldInitialized) {
+      world.reset();
+      gameScene.setUnderwater(false);
+      worldInitialized = false;
+    }
   });
 
   let lastTime = performance.now();
