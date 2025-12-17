@@ -46,3 +46,7 @@ export function isBlockSolid(blockType: BlockType): boolean {
 export function isBlockTransparent(blockType: BlockType): boolean {
   return blockType === BlockType.AIR || blockType === BlockType.WATER || blockType === BlockType.LEAVES;
 }
+
+export function isBlockWater(blockType: BlockType): boolean {
+  return blockType === BlockType.WATER;
+}

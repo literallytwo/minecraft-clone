@@ -1,15 +1,36 @@
 import * as THREE from 'three';
-import { Chunk } from './Chunk';
-import { BlockType, isBlockSolid } from './Block';
+import { Chunk, type WorldBlockGetter } from './Chunk';
+import { BlockType, isBlockSolid, isBlockWater } from './Block';
 import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RENDER_DISTANCE } from '../utils/constants';
+import { terrainGenerator } from './TerrainGenerator';
 import { gameScene } from '../rendering/Scene';
 
 class World {
   private chunks: Map<string, Chunk> = new Map();
   private raycaster = new THREE.Raycaster();
 
+  // bound function for chunks to query cross-chunk block state
+  private worldBlockGetter: WorldBlockGetter = this.getBlockForChunk.bind(this);
+
   private getChunkKey(chunkX: number, chunkZ: number): string {
     return `${chunkX},${chunkZ}`;
+  }
+
+  // get block at world coords, used by chunks for cross-chunk neighbor lookups
+  // falls back to terrain generator if chunk doesn't exist (unloaded or not yet generated)
+  private getBlockForChunk(worldX: number, worldY: number, worldZ: number): BlockType {
+    // handle Y bounds
+    if (worldY < 0 || worldY >= CHUNK_HEIGHT) {
+      return terrainGenerator.getBlock(worldX, worldY, worldZ);
+    }
+    const [chunkX, chunkZ, localX, localY, localZ] = this.worldToLocal(worldX, worldY, worldZ);
+    const chunk = this.chunks.get(this.getChunkKey(chunkX, chunkZ));
+    if (!chunk) {
+      // chunk not loaded, use terrain generator as fallback
+      return terrainGenerator.getBlock(worldX, worldY, worldZ);
+    }
+    // get block directly from chunk's internal data to avoid infinite recursion
+    return chunk.getBlockLocal(localX, localY, localZ);
   }
 
   // convert world coords to chunk coords
@@ -72,10 +93,11 @@ class World {
         const key = this.getChunkKey(chunkX, chunkZ);
 
         if (!this.chunks.has(key)) {
-          const chunk = new Chunk(chunkX, chunkZ);
+          const chunk = new Chunk(chunkX, chunkZ, this.worldBlockGetter);
           chunk.buildMesh();
           this.chunks.set(key, chunk);
           if (chunk.mesh) gameScene.add(chunk.mesh);
+          if (chunk.waterMesh) gameScene.add(chunk.waterMesh);
         }
       }
     }
@@ -88,6 +110,7 @@ class World {
 
       if (dx > RENDER_DISTANCE + 1 || dz > RENDER_DISTANCE + 1) {
         if (chunk.mesh) gameScene.remove(chunk.mesh);
+        if (chunk.waterMesh) gameScene.remove(chunk.waterMesh);
         chunk.dispose();
         this.chunks.delete(key);
       }
@@ -138,6 +161,11 @@ class World {
   // check collision with blocks
   isBlockSolidAt(x: number, y: number, z: number): boolean {
     return isBlockSolid(this.getBlock(x, y, z));
+  }
+
+  // check if block is water
+  isBlockWaterAt(x: number, y: number, z: number): boolean {
+    return isBlockWater(this.getBlock(x, y, z));
   }
 
   // get spawn height at position

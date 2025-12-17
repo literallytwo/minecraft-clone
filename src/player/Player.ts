@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import { controls } from './Controls';
-import { resolveCollisions, applyGravity } from './Physics';
+import { resolveCollisions, applyGravity, applyWaterPhysics } from './Physics';
 import { gameScene } from '../rendering/Scene';
 import { world } from '../world/World';
 import { BlockType } from '../world/Block';
-import { MOVE_SPEED, JUMP_FORCE, EYE_HEIGHT } from '../utils/constants';
+import { MOVE_SPEED, JUMP_FORCE, EYE_HEIGHT, WATER_MOVE_SPEED, SWIM_UP_ACCELERATION, SWIM_DOWN_ACCELERATION } from '../utils/constants';
 
 class Player {
   position: THREE.Vector3;
   velocity: THREE.Vector3;
   private grounded = false;
+  private inWater = false;
   selectedBlock: BlockType = BlockType.DIRT;
 
   constructor() {
@@ -70,20 +71,42 @@ class Player {
   }
 
   update(deltaTime: number): void {
-    // apply gravity
-    applyGravity(this.velocity, deltaTime);
+    // check if player is in water
+    this.inWater = this.checkInWater();
 
     // get movement input
     const input = controls.getMovementInput();
 
-    // apply horizontal movement
-    this.velocity.x = input.x * MOVE_SPEED;
-    this.velocity.z = input.z * MOVE_SPEED;
+    if (this.inWater) {
+      // swim up with space - apply acceleration
+      if (controls.wantsJump()) {
+        this.velocity.y += SWIM_UP_ACCELERATION * deltaTime;
+      }
 
-    // jump
-    if (controls.wantsJump() && this.grounded) {
-      this.velocity.y = JUMP_FORCE;
-      this.grounded = false;
+      // swim down with shift - apply acceleration
+      if (controls.wantsSwimDown()) {
+        this.velocity.y -= SWIM_DOWN_ACCELERATION * deltaTime;
+      }
+
+      // horizontal movement in water
+      this.velocity.x += input.x * WATER_MOVE_SPEED * deltaTime;
+      this.velocity.z += input.z * WATER_MOVE_SPEED * deltaTime;
+
+      // apply water physics (gravity, clamping, drag)
+      applyWaterPhysics(this.velocity, deltaTime);
+    } else {
+      // normal physics
+      applyGravity(this.velocity, deltaTime);
+
+      // apply horizontal movement
+      this.velocity.x = input.x * MOVE_SPEED;
+      this.velocity.z = input.z * MOVE_SPEED;
+
+      // jump
+      if (controls.wantsJump() && this.grounded) {
+        this.velocity.y = JUMP_FORCE;
+        this.grounded = false;
+      }
     }
 
     // resolve collisions
@@ -94,6 +117,26 @@ class Player {
     gameScene.camera.position.copy(this.position);
     gameScene.camera.position.y += EYE_HEIGHT;
     controls.updateCamera(gameScene.camera);
+
+    // update underwater visual effects
+    gameScene.setUnderwater(this.isEyeUnderwater());
+  }
+
+  private checkInWater(): boolean {
+    // check if player's feet or chest is in water
+    const x = Math.floor(this.position.x);
+    const feetY = Math.floor(this.position.y);
+    const chestY = Math.floor(this.position.y + 1);
+    const z = Math.floor(this.position.z);
+    return world.isBlockWaterAt(x, feetY, z) || world.isBlockWaterAt(x, chestY, z);
+  }
+
+  private isEyeUnderwater(): boolean {
+    const eyeY = this.position.y + EYE_HEIGHT;
+    const x = Math.floor(this.position.x);
+    const y = Math.floor(eyeY);
+    const z = Math.floor(this.position.z);
+    return world.isBlockWaterAt(x, y, z);
   }
 }
 

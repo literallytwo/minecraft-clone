@@ -4,12 +4,18 @@ class GameScene {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
+  private normalFog: THREE.Fog;
+  private underwaterFog: THREE.Fog;
+  private underwaterOverlay: THREE.Mesh | null = null;
+  private isUnderwater = false;
 
   constructor() {
     // scene
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x87ceeb); // sky blue
-    this.scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
+    this.normalFog = new THREE.Fog(0x87ceeb, 50, 150);
+    this.underwaterFog = new THREE.Fog(0x1a4a6e, 0, 30); // dark blue, much closer
+    this.scene.fog = this.normalFog;
 
     // camera
     this.camera = new THREE.PerspectiveCamera(
@@ -33,8 +39,42 @@ class GameScene {
     sunLight.position.set(100, 200, 100);
     this.scene.add(sunLight);
 
+    // create underwater overlay
+    this.createUnderwaterOverlay();
+
     // handle resize
     window.addEventListener('resize', this.onResize.bind(this));
+  }
+
+  private createUnderwaterOverlay(): void {
+    const geometry = new THREE.PlaneGeometry(2, 2);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x1a5a8e,
+      transparent: true,
+      opacity: 0.3,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.underwaterOverlay = new THREE.Mesh(geometry, material);
+    this.underwaterOverlay.renderOrder = 999;
+    this.underwaterOverlay.frustumCulled = false;
+    this.underwaterOverlay.visible = false;
+    this.scene.add(this.underwaterOverlay);
+  }
+
+  setUnderwater(underwater: boolean): void {
+    if (underwater === this.isUnderwater) return;
+    this.isUnderwater = underwater;
+
+    if (underwater) {
+      this.scene.fog = this.underwaterFog;
+      this.scene.background = new THREE.Color(0x1a4a6e);
+      if (this.underwaterOverlay) this.underwaterOverlay.visible = true;
+    } else {
+      this.scene.fog = this.normalFog;
+      this.scene.background = new THREE.Color(0x87ceeb);
+      if (this.underwaterOverlay) this.underwaterOverlay.visible = false;
+    }
   }
 
   private onResize(): void {
@@ -44,6 +84,14 @@ class GameScene {
   }
 
   render(): void {
+    // position underwater overlay in front of camera
+    if (this.underwaterOverlay && this.underwaterOverlay.visible) {
+      this.underwaterOverlay.position.copy(this.camera.position);
+      const forward = new THREE.Vector3(0, 0, -0.1);
+      forward.applyQuaternion(this.camera.quaternion);
+      this.underwaterOverlay.position.add(forward);
+      this.underwaterOverlay.quaternion.copy(this.camera.quaternion);
+    }
     this.renderer.render(this.scene, this.camera);
   }
 

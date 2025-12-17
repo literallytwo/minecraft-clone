@@ -15,6 +15,7 @@ const BLOCK_COLORS = [
 class TextureManager {
   private textureAtlas: THREE.Texture | null = null;
   private material: THREE.MeshLambertMaterial | null = null;
+  private waterMaterial: THREE.MeshLambertMaterial | null = null;
 
   async load(): Promise<void> {
     // generate texture atlas on canvas
@@ -69,6 +70,14 @@ class TextureManager {
       map: this.textureAtlas,
       side: THREE.FrontSide,
     });
+
+    this.waterMaterial = new THREE.MeshLambertMaterial({
+      map: this.textureAtlas,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
+    });
   }
 
   getMaterial(): THREE.MeshLambertMaterial {
@@ -76,6 +85,13 @@ class TextureManager {
       throw new Error('textures not loaded yet, call load() first');
     }
     return this.material;
+  }
+
+  getWaterMaterial(): THREE.MeshLambertMaterial {
+    if (!this.waterMaterial) {
+      throw new Error('textures not loaded yet, call load() first');
+    }
+    return this.waterMaterial;
   }
 
   getTexture(): THREE.Texture {

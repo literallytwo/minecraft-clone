@@ -69,6 +69,10 @@ class Controls {
     return this.isKeyDown('space');
   }
 
+  wantsSwimDown(): boolean {
+    return this.isKeyDown('shiftleft') || this.isKeyDown('shiftright');
+  }
+
   // update camera rotation
   updateCamera(camera: THREE.Camera): void {
     camera.rotation.order = 'YXZ';

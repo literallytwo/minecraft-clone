@@ -1,6 +1,6 @@
 import { createNoise2D, createNoise3D, type NoiseFunction2D, type NoiseFunction3D } from 'simplex-noise';
 import { BlockType } from './Block';
-import { CHUNK_HEIGHT } from '../utils/constants';
+import { SEA_LEVEL } from '../utils/constants';
 
 class TerrainGenerator {
   private noise2D: NoiseFunction2D;
@@ -50,7 +50,11 @@ class TerrainGenerator {
     if (worldY < 0) return BlockType.BEDROCK;
 
     // above terrain
-    if (worldY > surfaceHeight) return BlockType.AIR;
+    if (worldY > surfaceHeight) {
+      // fill with water if below sea level
+      if (worldY <= SEA_LEVEL) return BlockType.WATER;
+      return BlockType.AIR;
+    }
 
     // bedrock layer
     if (worldY <= 1) return BlockType.BEDROCK;

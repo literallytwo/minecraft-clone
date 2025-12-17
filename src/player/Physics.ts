@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { world } from '../world/World';
-import { PLAYER_WIDTH, PLAYER_HEIGHT, GRAVITY } from '../utils/constants';
+import { PLAYER_WIDTH, PLAYER_HEIGHT, GRAVITY, WATER_GRAVITY, WATER_MAX_SINK_SPEED, WATER_MAX_SWIM_SPEED, WATER_MAX_HORIZONTAL_SPEED, WATER_DRAG } from '../utils/constants';
 
 // simple AABB collision detection with voxels
 export function resolveCollisions(
@@ -71,4 +71,23 @@ export function applyGravity(velocity: THREE.Vector3, deltaTime: number): void {
   velocity.y -= GRAVITY * deltaTime;
   // terminal velocity
   velocity.y = Math.max(velocity.y, -50);
+}
+
+export function applyWaterPhysics(velocity: THREE.Vector3, deltaTime: number): void {
+  // apply drag first - velocity decays over time in water
+  const dragFactor = Math.exp(-WATER_DRAG * deltaTime);
+  velocity.x *= dragFactor;
+  velocity.y *= dragFactor;
+  velocity.z *= dragFactor;
+
+  // apply water gravity (buoyancy counteracted by slight sinking)
+  velocity.y -= WATER_GRAVITY * deltaTime;
+
+  // clamp vertical velocity
+  velocity.y = Math.max(velocity.y, WATER_MAX_SINK_SPEED);
+  velocity.y = Math.min(velocity.y, WATER_MAX_SWIM_SPEED);
+
+  // clamp horizontal velocity
+  velocity.x = Math.max(-WATER_MAX_HORIZONTAL_SPEED, Math.min(WATER_MAX_HORIZONTAL_SPEED, velocity.x));
+  velocity.z = Math.max(-WATER_MAX_HORIZONTAL_SPEED, Math.min(WATER_MAX_HORIZONTAL_SPEED, velocity.z));
 }
