@@ -72,13 +72,13 @@ export class Chunk {
       // fallback to terrain generator if no world getter (shouldn't happen in normal use)
       return terrainGenerator.getBlock(worldX, y, worldZ);
     }
-    return this.blocks[this.getIndex(x, y, z)];
+    return this.blocks[this.getIndex(x, y, z)] as BlockType;
   }
 
   // get block directly from internal data (no bounds check, no cross-chunk lookup)
   // used by World.getBlockForChunk to avoid infinite recursion
   getBlockLocal(x: number, y: number, z: number): BlockType {
-    return this.blocks[this.getIndex(x, y, z)];
+    return this.blocks[this.getIndex(x, y, z)] as BlockType;
   }
 
   setBlock(x: number, y: number, z: number, blockType: BlockType): void {

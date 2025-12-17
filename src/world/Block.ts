@@ -1,16 +1,18 @@
 import { TILE_SIZE } from '../utils/constants';
 
-export enum BlockType {
-  AIR = 0,
-  GRASS = 1,
-  DIRT = 2,
-  STONE = 3,
-  BEDROCK = 4,
-  SAND = 5,
-  WATER = 6,
-  WOOD = 7,
-  LEAVES = 8,
-}
+export const BlockType = {
+  AIR: 0,
+  GRASS: 1,
+  DIRT: 2,
+  STONE: 3,
+  BEDROCK: 4,
+  SAND: 5,
+  WATER: 6,
+  WOOD: 7,
+  LEAVES: 8,
+} as const;
+
+export type BlockType = (typeof BlockType)[keyof typeof BlockType];
 
 // uv coords for each block type in the texture atlas
 // format: [top, side, bottom] - each is [u, v] in atlas grid coords
