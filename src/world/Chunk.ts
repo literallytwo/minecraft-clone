@@ -129,8 +129,8 @@ export class Chunk {
 
             if (isWater) {
               visible = neighbor === BlockType.AIR;
-            } else if (isPartialBlock(blockType)) {
-              // partial blocks don't cull any faces - always render all of them
+            } else if (isPartialBlock(blockType) || isPartialBlock(neighbor)) {
+              // partial blocks don't cull - show faces on partial blocks and faces next to them
               visible = true;
             } else {
               visible = isBlockTransparent(neighbor);
