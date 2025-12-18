@@ -2,7 +2,7 @@ import { controls } from './Controls';
 import { applyWaterPhysics } from './Physics';
 import { gameScene } from '../rendering/Scene';
 import { world } from '../world/World';
-import { BlockType } from '../world/Block';
+import { BlockType, isBlockReplaceable } from '../world/Block';
 import { MOVE_SPEED, JUMP_FORCE, EYE_HEIGHT, WATER_MOVE_SPEED, SWIM_UP_ACCELERATION, SWIM_DOWN_ACCELERATION, PLAYER_WIDTH, PLAYER_HEIGHT } from '../utils/constants';
 import { toBlockPos } from '../utils/coords';
 import { Entity } from '../entities/Entity';
@@ -33,13 +33,20 @@ class Player extends Entity {
           BlockType.AIR
         );
       } else if (e.button === 2 && rayResult.placePos) {
-        // right click - place block
-        world.setBlock(
+        // right click - place block (only if target is replaceable)
+        const targetBlock = world.getBlock(
           rayResult.placePos.x,
           rayResult.placePos.y,
-          rayResult.placePos.z,
-          this.selectedBlock
+          rayResult.placePos.z
         );
+        if (isBlockReplaceable(targetBlock)) {
+          world.setBlock(
+            rayResult.placePos.x,
+            rayResult.placePos.y,
+            rayResult.placePos.z,
+            this.selectedBlock
+          );
+        }
       }
     });
 
