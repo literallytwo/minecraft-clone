@@ -168,6 +168,17 @@ class World {
     return isBlockWater(this.getBlock(x, y, z));
   }
 
+  // find the top non-air block at (x, z), returns { y, blockType } or null if all air
+  getSurfaceBlock(x: number, z: number): { y: number; blockType: BlockType } | null {
+    for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
+      const block = this.getBlock(x, y, z);
+      if (block !== BlockType.AIR) {
+        return { y, blockType: block };
+      }
+    }
+    return null;
+  }
+
   // get spawn height at position
   getSpawnHeight(x: number, z: number): number {
     for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {

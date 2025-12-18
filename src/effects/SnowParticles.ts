@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { RenderLayer } from '../utils/constants';
+import type { Disposable } from '../utils/Disposable';
 
 const PARTICLE_COUNT = 1500;
 const SPAWN_RADIUS = 40;
@@ -7,7 +9,7 @@ const FALL_SPEED = 4;
 const DRIFT_SPEED = 1;
 const PARTICLE_SIZE = 0.15;
 
-export class SnowParticles {
+export class SnowParticles implements Disposable {
   private particles: THREE.Points;
   private positions: Float32Array;
   private velocities: Float32Array;
@@ -34,7 +36,7 @@ export class SnowParticles {
     });
 
     this.particles = new THREE.Points(this.geometry, material);
-    this.particles.renderOrder = 2; // render after water (which is 1)
+    this.particles.renderOrder = RenderLayer.PARTICLES;
   }
 
   private resetParticle(index: number, randomizeY = false): void {

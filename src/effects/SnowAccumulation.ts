@@ -1,6 +1,6 @@
 import { world } from '../world/World';
 import { BlockType, isBlockSolid } from '../world/Block';
-import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RENDER_DISTANCE } from '../utils/constants';
+import { CHUNK_WIDTH, CHUNK_DEPTH, RENDER_DISTANCE } from '../utils/constants';
 
 const ACCUMULATION_INTERVAL = 5000; // ms between accumulation passes
 const BLOCKS_PER_PASS = 10;
@@ -54,29 +54,27 @@ export class SnowAccumulation {
   }
 
   private tryPlaceSnow(worldX: number, worldZ: number): void {
-    // find highest solid block
-    for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
-      const block = world.getBlock(worldX, y, worldZ);
+    const surface = world.getSurfaceBlock(worldX, worldZ);
+    if (!surface) return;
 
-      if (block === BlockType.AIR) continue;
-      if (block === BlockType.WATER) return; // no snow on water
-      if (block === BlockType.SNOW) return; // already has snow
-      if (block === BlockType.LEAVES) return; // skip leaves
+    const { y, blockType } = surface;
 
-      // found a valid solid block - check if space above is clear
-      const above = world.getBlock(worldX, y + 1, worldZ);
-      if (above !== BlockType.AIR) return;
+    // no snow on water, existing snow, or leaves
+    if (blockType === BlockType.WATER) return;
+    if (blockType === BlockType.SNOW) return;
+    if (blockType === BlockType.LEAVES) return;
 
-      // check for sky exposure (nothing solid above for ~10 blocks)
-      for (let checkY = y + 2; checkY < Math.min(y + 10, CHUNK_HEIGHT); checkY++) {
-        if (isBlockSolid(world.getBlock(worldX, checkY, worldZ))) {
-          return; // covered, no snow
-        }
+    // check if space above is clear
+    const above = world.getBlock(worldX, y + 1, worldZ);
+    if (above !== BlockType.AIR) return;
+
+    // check for sky exposure (nothing solid above for ~10 blocks)
+    for (let checkY = y + 2; checkY < y + 10; checkY++) {
+      if (isBlockSolid(world.getBlock(worldX, checkY, worldZ))) {
+        return; // covered, no snow
       }
-
-      // place snow
-      world.setBlock(worldX, y + 1, worldZ, BlockType.SNOW);
-      return;
     }
+
+    world.setBlock(worldX, y + 1, worldZ, BlockType.SNOW);
   }
 }

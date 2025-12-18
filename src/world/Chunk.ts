@@ -1,21 +1,28 @@
 import * as THREE from 'three';
-import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH } from '../utils/constants';
-import { BlockType, getBlockUVs, isBlockTransparent, isBlockWater, isBlockSnow, SNOW_HEIGHT } from './Block';
+import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RenderLayer } from '../utils/constants';
+import { BlockType, getBlockUVs, isBlockTransparent, isBlockWater, isBlockSnow, getBlockHeight } from './Block';
 import { terrainGenerator } from './TerrainGenerator';
 import { textureManager } from '../rendering/TextureManager';
 
-// face brightness - minecraft style directional shading
-const FACE_BRIGHTNESS = {
-  TOP: 1.0,     // Y+ direct light
-  BOTTOM: 0.5,  // Y- darkest
-  NORTH: 0.8,   // Z-
-  SOUTH: 0.8,   // Z+
-  EAST: 0.6,    // X+
-  WEST: 0.6,    // X-
-};
-
 // AO levels: 0=bright, 3=darkest (smooth curve)
 const AO_CURVE = [1.0, 0.75, 0.5, 0.3];
+
+// face descriptor: direction, vertices (0=bottom, 1=top of block), uv face type, brightness
+type FaceDescriptor = {
+  dir: [number, number, number];
+  verts: [[number, number, number], [number, number, number], [number, number, number], [number, number, number]];
+  uvFace: 'top' | 'side' | 'bottom';
+  brightness: number;
+};
+
+const FACES: FaceDescriptor[] = [
+  { dir: [0, 1, 0], verts: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]], uvFace: 'top', brightness: 1.0 },      // +Y top
+  { dir: [0, -1, 0], verts: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], uvFace: 'bottom', brightness: 0.5 },  // -Y bottom
+  { dir: [0, 0, 1], verts: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], uvFace: 'side', brightness: 0.8 },     // +Z south
+  { dir: [0, 0, -1], verts: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], uvFace: 'side', brightness: 0.8 },    // -Z north
+  { dir: [1, 0, 0], verts: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], uvFace: 'side', brightness: 0.6 },     // +X east
+  { dir: [-1, 0, 0], verts: [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], uvFace: 'side', brightness: 0.6 },    // -X west
+];
 
 // function type for querying blocks from the world (used for cross-chunk neighbor lookups)
 export type WorldBlockGetter = (worldX: number, worldY: number, worldZ: number) => BlockType;
@@ -110,95 +117,45 @@ export class Chunk {
           const blockType = this.getBlock(x, y, z);
           if (blockType === BlockType.AIR) continue;
 
-          if (isBlockWater(blockType)) {
-            // water block - only show faces adjacent to AIR (not water-to-water)
-            // +y (top)
-            if (this.getBlock(x, y + 1, z) === BlockType.AIR) {
-              this.addFace(waterPositions, waterNormals, waterUvs, waterColors, waterIndices, waterVertexIndex,
-                x, y + 1, z + 1, x + 1, y + 1, z + 1, x + 1, y + 1, z, x, y + 1, z,
-                0, 1, 0, blockType, 'top', x, y, z, true);
-              waterVertexIndex += 4;
-            }
-            // -y (bottom)
-            if (this.getBlock(x, y - 1, z) === BlockType.AIR) {
-              this.addFace(waterPositions, waterNormals, waterUvs, waterColors, waterIndices, waterVertexIndex,
-                x, y, z, x + 1, y, z, x + 1, y, z + 1, x, y, z + 1,
-                0, -1, 0, blockType, 'bottom', x, y, z, true);
-              waterVertexIndex += 4;
-            }
-            // +z (front)
-            if (this.getBlock(x, y, z + 1) === BlockType.AIR) {
-              this.addFace(waterPositions, waterNormals, waterUvs, waterColors, waterIndices, waterVertexIndex,
-                x, y, z + 1, x + 1, y, z + 1, x + 1, y + 1, z + 1, x, y + 1, z + 1,
-                0, 0, 1, blockType, 'side', x, y, z, true);
-              waterVertexIndex += 4;
-            }
-            // -z (back)
-            if (this.getBlock(x, y, z - 1) === BlockType.AIR) {
-              this.addFace(waterPositions, waterNormals, waterUvs, waterColors, waterIndices, waterVertexIndex,
-                x + 1, y, z, x, y, z, x, y + 1, z, x + 1, y + 1, z,
-                0, 0, -1, blockType, 'side', x, y, z, true);
-              waterVertexIndex += 4;
-            }
-            // +x (right)
-            if (this.getBlock(x + 1, y, z) === BlockType.AIR) {
-              this.addFace(waterPositions, waterNormals, waterUvs, waterColors, waterIndices, waterVertexIndex,
-                x + 1, y, z + 1, x + 1, y, z, x + 1, y + 1, z, x + 1, y + 1, z + 1,
-                1, 0, 0, blockType, 'side', x, y, z, true);
-              waterVertexIndex += 4;
-            }
-            // -x (left)
-            if (this.getBlock(x - 1, y, z) === BlockType.AIR) {
-              this.addFace(waterPositions, waterNormals, waterUvs, waterColors, waterIndices, waterVertexIndex,
-                x, y, z, x, y, z + 1, x, y + 1, z + 1, x, y + 1, z,
-                -1, 0, 0, blockType, 'side', x, y, z, true);
-              waterVertexIndex += 4;
-            }
-          } else {
-            // solid block - check each face and add if adjacent block is transparent
-            // snow uses partial height
-            const topY = isBlockSnow(blockType) ? y + SNOW_HEIGHT : y + 1;
+          const isWater = isBlockWater(blockType);
+          const isSnow = isBlockSnow(blockType);
+          const height = getBlockHeight(blockType);
 
-            // +y (top) - snow always shows top since it's shorter than a full block
-            if (isBlockTransparent(this.getBlock(x, y + 1, z)) || isBlockSnow(blockType)) {
-              this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x, topY, z + 1, x + 1, topY, z + 1, x + 1, topY, z, x, topY, z,
-                0, 1, 0, blockType, 'top', x, y, z, false);
-              solidVertexIndex += 4;
+          for (const face of FACES) {
+            const [dx, dy, dz] = face.dir;
+            const neighbor = this.getBlock(x + dx, y + dy, z + dz);
+
+            // determine if face should be visible
+            let visible: boolean;
+            if (isWater) {
+              visible = neighbor === BlockType.AIR;
+            } else if (dy === 1 && isSnow) {
+              // snow always shows top face (shorter than full block)
+              visible = true;
+            } else {
+              visible = isBlockTransparent(neighbor);
             }
-            // -y (bottom)
-            if (isBlockTransparent(this.getBlock(x, y - 1, z))) {
-              this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x, y, z, x + 1, y, z, x + 1, y, z + 1, x, y, z + 1,
-                0, -1, 0, blockType, 'bottom', x, y, z, false);
-              solidVertexIndex += 4;
-            }
-            // +z (front)
-            if (isBlockTransparent(this.getBlock(x, y, z + 1))) {
-              this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x, y, z + 1, x + 1, y, z + 1, x + 1, topY, z + 1, x, topY, z + 1,
-                0, 0, 1, blockType, 'side', x, y, z, false);
-              solidVertexIndex += 4;
-            }
-            // -z (back)
-            if (isBlockTransparent(this.getBlock(x, y, z - 1))) {
-              this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x + 1, y, z, x, y, z, x, topY, z, x + 1, topY, z,
-                0, 0, -1, blockType, 'side', x, y, z, false);
-              solidVertexIndex += 4;
-            }
-            // +x (right)
-            if (isBlockTransparent(this.getBlock(x + 1, y, z))) {
-              this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x + 1, y, z + 1, x + 1, y, z, x + 1, topY, z, x + 1, topY, z + 1,
-                1, 0, 0, blockType, 'side', x, y, z, false);
-              solidVertexIndex += 4;
-            }
-            // -x (left)
-            if (isBlockTransparent(this.getBlock(x - 1, y, z))) {
-              this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x, y, z, x, y, z + 1, x, topY, z + 1, x, topY, z,
-                -1, 0, 0, blockType, 'side', x, y, z, false);
+
+            if (!visible) continue;
+
+            // transform vertices: scale y by block height
+            const v = face.verts.map(([vx, vy, vz]) => [
+              x + vx,
+              y + vy * height,
+              z + vz,
+            ]) as [[number, number, number], [number, number, number], [number, number, number], [number, number, number]];
+
+            if (isWater) {
+              this.addFace(
+                waterPositions, waterNormals, waterUvs, waterColors, waterIndices, waterVertexIndex,
+                v, face.dir, face.brightness, blockType, face.uvFace, x, y, z, true
+              );
+              waterVertexIndex += 4;
+            } else {
+              this.addFace(
+                solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
+                v, face.dir, face.brightness, blockType, face.uvFace, x, y, z, false
+              );
               solidVertexIndex += 4;
             }
           }
@@ -244,7 +201,7 @@ export class Chunk {
       this.waterMesh.geometry = waterGeometry;
     }
     this.waterMesh.position.set(worldX, 0, worldZ);
-    this.waterMesh.renderOrder = 1; // render water after solid blocks
+    this.waterMesh.renderOrder = RenderLayer.WATER;
   }
 
   // check if a block occludes light for AO purposes
@@ -307,17 +264,19 @@ export class Chunk {
   private addFace(
     positions: number[], normals: number[], uvs: number[], colors: number[], indices: number[],
     startIndex: number,
-    x1: number, y1: number, z1: number,
-    x2: number, y2: number, z2: number,
-    x3: number, y3: number, z3: number,
-    x4: number, y4: number, z4: number,
-    nx: number, ny: number, nz: number,
-    blockType: BlockType, face: 'top' | 'side' | 'bottom',
+    verts: [[number, number, number], [number, number, number], [number, number, number], [number, number, number]],
+    normal: [number, number, number],
+    faceBrightness: number,
+    blockType: BlockType, uvFace: 'top' | 'side' | 'bottom',
     blockX: number, blockY: number, blockZ: number,
     isWater: boolean
   ): void {
+    const [nx, ny, nz] = normal;
+
     // positions
-    positions.push(x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4);
+    for (const [vx, vy, vz] of verts) {
+      positions.push(vx, vy, vz);
+    }
 
     // normals
     for (let i = 0; i < 4; i++) {
@@ -325,31 +284,13 @@ export class Chunk {
     }
 
     // uvs from texture atlas
-    const [u1, v1, u2, v2] = getBlockUVs(blockType, face);
+    const [u1, v1, u2, v2] = getBlockUVs(blockType, uvFace);
     uvs.push(u1, v1, u2, v1, u2, v2, u1, v2);
 
-    // calculate face brightness based on normal direction
-    let faceBrightness: number;
-    if (ny > 0) faceBrightness = FACE_BRIGHTNESS.TOP;
-    else if (ny < 0) faceBrightness = FACE_BRIGHTNESS.BOTTOM;
-    else if (nz !== 0) faceBrightness = FACE_BRIGHTNESS.NORTH;
-    else faceBrightness = FACE_BRIGHTNESS.EAST;
-
     // calculate vertex colors with AO
-    const vertices = [
-      [x1, y1, z1],
-      [x2, y2, z2],
-      [x3, y3, z3],
-      [x4, y4, z4],
-    ];
     const aoValues: number[] = [];
-
-    for (let i = 0; i < 4; i++) {
-      const ao = isWater ? 0 : this.calculateVertexAO(
-        blockX, blockY, blockZ,
-        nx, ny, nz,
-        vertices[i][0], vertices[i][1], vertices[i][2]
-      );
+    for (const [vx, vy, vz] of verts) {
+      const ao = isWater ? 0 : this.calculateVertexAO(blockX, blockY, blockZ, nx, ny, nz, vx, vy, vz);
       aoValues.push(ao);
       const brightness = faceBrightness * AO_CURVE[ao];
       colors.push(brightness, brightness, brightness);

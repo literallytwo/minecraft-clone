@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { SnowParticles } from './SnowParticles';
 import { SnowAccumulation } from './SnowAccumulation';
 import { isDecember } from '../utils/seasonalEffects';
-import { gameScene } from '../rendering/Scene';
+import { resourceManager, type Disposable } from '../utils/Disposable';
 
-export class WinterEffects {
+export class WinterEffects implements Disposable {
   private snowParticles: SnowParticles | null = null;
   private snowAccumulation: SnowAccumulation | null = null;
   private enabled = false;
@@ -15,7 +15,7 @@ export class WinterEffects {
     if (this.enabled) {
       this.snowParticles = new SnowParticles();
       this.snowAccumulation = new SnowAccumulation();
-      gameScene.add(this.snowParticles.getMesh());
+      resourceManager.track(this.snowParticles, this.snowParticles.getMesh());
     }
   }
 
@@ -28,8 +28,7 @@ export class WinterEffects {
 
   dispose(): void {
     if (this.snowParticles) {
-      gameScene.remove(this.snowParticles.getMesh());
-      this.snowParticles.dispose();
+      resourceManager.release(this.snowParticles);
     }
     this.snowParticles = null;
     this.snowAccumulation = null;
