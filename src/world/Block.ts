@@ -44,7 +44,7 @@ export function getBlockUVs(blockType: BlockType, face: 'top' | 'side' | 'bottom
 }
 
 export function isBlockSolid(blockType: BlockType): boolean {
-  return blockType !== BlockType.AIR && blockType !== BlockType.WATER;
+  return blockType !== BlockType.AIR && blockType !== BlockType.WATER && blockType !== BlockType.SNOW;
 }
 
 export function isBlockTransparent(blockType: BlockType): boolean {
