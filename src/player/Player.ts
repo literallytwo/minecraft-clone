@@ -1,21 +1,17 @@
-import * as THREE from 'three';
 import { controls } from './Controls';
-import { resolveCollisions, applyGravity, applyWaterPhysics } from './Physics';
+import { applyWaterPhysics } from './Physics';
 import { gameScene } from '../rendering/Scene';
 import { world } from '../world/World';
-import { BlockType } from '../world/Block';
-import { MOVE_SPEED, JUMP_FORCE, EYE_HEIGHT, WATER_MOVE_SPEED, SWIM_UP_ACCELERATION, SWIM_DOWN_ACCELERATION } from '../utils/constants';
+import { BlockType, isBlockReplaceable } from '../world/Block';
+import { MOVE_SPEED, JUMP_FORCE, EYE_HEIGHT, WATER_MOVE_SPEED, SWIM_UP_ACCELERATION, SWIM_DOWN_ACCELERATION, PLAYER_WIDTH, PLAYER_HEIGHT } from '../utils/constants';
+import { toBlockPos } from '../utils/coords';
+import { Entity } from '../entities/Entity';
 
-class Player {
-  position: THREE.Vector3;
-  velocity: THREE.Vector3;
-  private grounded = false;
-  private inWater = false;
+class Player extends Entity {
   selectedBlock: BlockType = BlockType.DIRT;
 
   constructor() {
-    this.position = new THREE.Vector3(0, 50, 0);
-    this.velocity = new THREE.Vector3(0, 0, 0);
+    super(0, 50, 0, { width: PLAYER_WIDTH, height: PLAYER_HEIGHT });
 
     // block placement/breaking
     document.addEventListener('mousedown', (e) => {
@@ -37,13 +33,20 @@ class Player {
           BlockType.AIR
         );
       } else if (e.button === 2 && rayResult.placePos) {
-        // right click - place block
-        world.setBlock(
+        // right click - place block (only if target is replaceable)
+        const targetBlock = world.getBlock(
           rayResult.placePos.x,
           rayResult.placePos.y,
-          rayResult.placePos.z,
-          this.selectedBlock
+          rayResult.placePos.z
         );
+        if (isBlockReplaceable(targetBlock)) {
+          world.setBlock(
+            rayResult.placePos.x,
+            rayResult.placePos.y,
+            rayResult.placePos.z,
+            this.selectedBlock
+          );
+        }
       }
     });
 
@@ -71,19 +74,18 @@ class Player {
   }
 
   update(deltaTime: number): void {
-    // check if player is in water
-    this.inWater = this.checkInWater();
+    const inWater = this.isInWater();
 
     // get movement input
     const input = controls.getMovementInput();
 
-    if (this.inWater) {
-      // swim up with space - apply acceleration
+    if (inWater) {
+      // swim up with space
       if (controls.wantsJump()) {
         this.velocity.y += SWIM_UP_ACCELERATION * deltaTime;
       }
 
-      // swim down with shift - apply acceleration
+      // swim down with shift
       if (controls.wantsSwimDown()) {
         this.velocity.y -= SWIM_DOWN_ACCELERATION * deltaTime;
       }
@@ -92,11 +94,11 @@ class Player {
       this.velocity.x += input.x * WATER_MOVE_SPEED * deltaTime;
       this.velocity.z += input.z * WATER_MOVE_SPEED * deltaTime;
 
-      // apply water physics (gravity, clamping, drag)
+      // apply water physics (drag, clamping)
       applyWaterPhysics(this.velocity, deltaTime);
     } else {
       // normal physics
-      applyGravity(this.velocity, deltaTime);
+      this.applyGravity(deltaTime);
 
       // apply horizontal movement
       this.velocity.x = input.x * MOVE_SPEED;
@@ -110,8 +112,7 @@ class Player {
     }
 
     // resolve collisions
-    const result = resolveCollisions(this.position, this.velocity, deltaTime);
-    this.grounded = result.grounded;
+    this.resolveCollisions(deltaTime);
 
     // update camera position and rotation
     gameScene.camera.position.copy(this.position);
@@ -122,20 +123,10 @@ class Player {
     gameScene.setUnderwater(this.isEyeUnderwater());
   }
 
-  private checkInWater(): boolean {
-    // check if player's feet or chest is in water
-    const x = Math.floor(this.position.x);
-    const feetY = Math.floor(this.position.y);
-    const chestY = Math.floor(this.position.y + 1);
-    const z = Math.floor(this.position.z);
-    return world.isBlockWaterAt(x, feetY, z) || world.isBlockWaterAt(x, chestY, z);
-  }
-
   private isEyeUnderwater(): boolean {
-    const eyeY = this.position.y + EYE_HEIGHT;
-    const x = Math.floor(this.position.x);
-    const y = Math.floor(eyeY);
-    const z = Math.floor(this.position.z);
+    const eyePos = this.position.clone();
+    eyePos.y += EYE_HEIGHT;
+    const { x, y, z } = toBlockPos(eyePos);
     return world.isBlockWaterAt(x, y, z);
   }
 }

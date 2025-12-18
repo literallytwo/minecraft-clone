@@ -148,11 +148,11 @@ class World {
       Math.floor(point.z - normal.z * 0.01)
     );
 
-    // place position is adjacent in normal direction
+    // place position is adjacent block in normal direction
     const placePos = new THREE.Vector3(
-      Math.floor(point.x + normal.x * 0.5),
-      Math.floor(point.y + normal.y * 0.5),
-      Math.floor(point.z + normal.z * 0.5)
+      blockPos.x + Math.round(normal.x),
+      blockPos.y + Math.round(normal.y),
+      blockPos.z + Math.round(normal.z)
     );
 
     return { hit: true, blockPos, placePos, normal };
@@ -166,6 +166,17 @@ class World {
   // check if block is water
   isBlockWaterAt(x: number, y: number, z: number): boolean {
     return isBlockWater(this.getBlock(x, y, z));
+  }
+
+  // find the top non-air block at (x, z), returns { y, blockType } or null if all air
+  getSurfaceBlock(x: number, z: number): { y: number; blockType: BlockType } | null {
+    for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
+      const block = this.getBlock(x, y, z);
+      if (block !== BlockType.AIR) {
+        return { y, blockType: block };
+      }
+    }
+    return null;
   }
 
   // get spawn height at position

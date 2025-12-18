@@ -5,6 +5,7 @@ import { world } from './world/World';
 import { player } from './player/Player';
 import { gameState } from './state/GameState';
 import { menuManager } from './ui/MenuManager';
+import { WinterEffects } from './effects/WinterEffects';
 
 async function init() {
   const loadingEl = document.getElementById('loading')!;
@@ -24,11 +25,13 @@ async function init() {
 
   // world generation deferred until first play
   let worldInitialized = false;
+  let winterEffects: WinterEffects | null = null;
 
   gameState.onStateChange((state) => {
     if (state === 'playing' && !worldInitialized) {
       world.update(0, 0);
       player.spawn();
+      winterEffects = new WinterEffects();
       worldInitialized = true;
     }
 
@@ -36,6 +39,8 @@ async function init() {
     if (state === 'main_menu' && worldInitialized) {
       world.reset();
       gameScene.setUnderwater(false);
+      winterEffects?.dispose();
+      winterEffects = null;
       worldInitialized = false;
     }
   });
@@ -50,6 +55,7 @@ async function init() {
     if (gameState.isPlaying()) {
       player.update(deltaTime);
       world.update(player.position.x, player.position.z);
+      winterEffects?.update(deltaTime, currentTime, player.position);
 
       // update coords display
       coordsEl.textContent =

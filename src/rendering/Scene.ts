@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { RenderLayer } from '../utils/constants';
+import { resourceManager } from '../utils/Disposable';
 
 class GameScene {
   scene: THREE.Scene;
@@ -44,6 +46,9 @@ class GameScene {
 
     // handle resize
     window.addEventListener('resize', this.onResize.bind(this));
+
+    // set up resource manager with scene
+    resourceManager.setScene(this.scene);
   }
 
   private createUnderwaterOverlay(): void {
@@ -56,7 +61,7 @@ class GameScene {
       depthWrite: false,
     });
     this.underwaterOverlay = new THREE.Mesh(geometry, material);
-    this.underwaterOverlay.renderOrder = 999;
+    this.underwaterOverlay.renderOrder = RenderLayer.OVERLAY;
     this.underwaterOverlay.frustumCulled = false;
     this.underwaterOverlay.visible = false;
     this.scene.add(this.underwaterOverlay);

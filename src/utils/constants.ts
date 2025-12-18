@@ -28,3 +28,11 @@ export const WATER_DRAG = 4; // how fast velocity decays in water
 // texture atlas is 4x4 grid (16 textures)
 export const ATLAS_SIZE = 4;
 export const TILE_SIZE = 1 / ATLAS_SIZE;
+
+// render order layers (higher = rendered later/on top)
+export const RenderLayer = {
+  SOLID: 0,
+  WATER: 1,
+  PARTICLES: 2,
+  OVERLAY: 999,
+} as const;
