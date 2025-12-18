@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Chunk, type WorldBlockGetter } from './Chunk';
-import { BlockType, isBlockSolid, isBlockWater } from './Block';
+import { BlockType, isBlockSolid, isBlockWater, isBlockReplaceable } from './Block';
 import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RENDER_DISTANCE } from '../utils/constants';
 import { terrainGenerator } from './TerrainGenerator';
 import { gameScene } from '../rendering/Scene';
@@ -148,12 +148,18 @@ class World {
       Math.floor(point.z - normal.z * 0.01)
     );
 
-    // place position is adjacent in normal direction
-    const placePos = new THREE.Vector3(
-      Math.floor(point.x + normal.x * 0.5),
-      Math.floor(point.y + normal.y * 0.5),
-      Math.floor(point.z + normal.z * 0.5)
-    );
+    // check if hit block is replaceable (snow, water, air)
+    const hitBlock = this.getBlock(blockPos.x, blockPos.y, blockPos.z);
+
+    // place position: if block is replaceable, place in same position (replace it)
+    // otherwise place adjacent in normal direction
+    const placePos = isBlockReplaceable(hitBlock)
+      ? blockPos.clone()
+      : new THREE.Vector3(
+          Math.floor(point.x + normal.x * 0.5),
+          Math.floor(point.y + normal.y * 0.5),
+          Math.floor(point.z + normal.z * 0.5)
+        );
 
     return { hit: true, blockPos, placePos, normal };
   }

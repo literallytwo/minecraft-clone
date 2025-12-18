@@ -9,6 +9,7 @@ const SNOW_CONFIG: ParticleConfig = {
   color: 0xffffff,
   opacity: 0.8,
   mode: 'world',
+  unloadOn: 'solidOrWater',
 };
 
 const FALL_SPEED = 4;
@@ -53,6 +54,9 @@ export class SnowParticles extends ParticleSystem {
   protected shouldResetParticle(index: number, playerPos: THREE.Vector3): boolean {
     const i3 = index * 3;
     const { spawnRadius } = this.config;
+
+    // check block collision first (solid/water)
+    if (this.shouldUnloadOnBlock(index)) return true;
 
     // in world mode, check distance from player
     const dx = this.positions[i3] - playerPos.x;

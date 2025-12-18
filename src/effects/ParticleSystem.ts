@@ -1,8 +1,15 @@
 import * as THREE from 'three';
 import { RenderLayer } from '../utils/constants';
 import type { Disposable } from '../utils/Disposable';
+import { world } from '../world/World';
 
 export type ParticleMode = 'following' | 'world';
+
+// when to reset a particle:
+// 'void' - only when below threshold (default behavior)
+// 'solid' - when hitting any solid block
+// 'solidOrWater' - when hitting any solid block or water
+export type UnloadCondition = 'void' | 'solid' | 'solidOrWater';
 
 export interface ParticleConfig {
   particleCount: number;
@@ -12,6 +19,7 @@ export interface ParticleConfig {
   color: number;
   opacity: number;
   mode: ParticleMode;
+  unloadOn?: UnloadCondition; // defaults to 'void'
 }
 
 export abstract class ParticleSystem implements Disposable {
@@ -107,6 +115,23 @@ export abstract class ParticleSystem implements Disposable {
 
   getMesh(): THREE.Points {
     return this.particles;
+  }
+
+  // check if particle should unload based on block at its position
+  protected shouldUnloadOnBlock(index: number): boolean {
+    const condition = this.config.unloadOn ?? 'void';
+    if (condition === 'void') return false; // void condition doesn't check blocks
+
+    const i3 = index * 3;
+    const x = Math.floor(this.positions[i3]);
+    const y = Math.floor(this.positions[i3 + 1]);
+    const z = Math.floor(this.positions[i3 + 2]);
+
+    if (condition === 'solid') {
+      return world.isBlockSolidAt(x, y, z);
+    }
+    // solidOrWater
+    return world.isBlockSolidAt(x, y, z) || world.isBlockWaterAt(x, y, z);
   }
 
   dispose(): void {
