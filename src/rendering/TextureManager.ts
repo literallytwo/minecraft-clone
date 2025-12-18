@@ -8,7 +8,7 @@ const TOTAL_SIZE = ATLAS_SIZE * TILE_SIZE;
 const BLOCK_COLORS = [
   ['#5d9b3d', '#8b6b47', '#8b6b47', '#808080'], // grass top, grass side, dirt, stone
   ['#333333', '#e8d8a0', '#3d6ea8', '#b5985a'], // bedrock, sand, water, wood top
-  ['#6b4423', '#3d8b3d', '#ff00ff', '#ff00ff'], // wood side, leaves
+  ['#6b4423', '#3d8b3d', '#f0f0f8', '#ff00ff'], // wood side, leaves, snow
   ['#ff00ff', '#ff00ff', '#ff00ff', '#ff00ff'],
 ];
 
@@ -57,6 +57,14 @@ class TextureManager {
         if (row === 0 && col === 1) {
           ctx.fillStyle = '#5d9b3d';
           ctx.fillRect(x, y, TILE_SIZE, 3);
+        }
+
+        // snow detail (subtle blue-gray specks)
+        if (row === 2 && col === 2) {
+          ctx.fillStyle = '#e0e8f0';
+          for (let i = 0; i < 8; i++) {
+            ctx.fillRect(x + Math.random() * TILE_SIZE, y + Math.random() * TILE_SIZE, 2, 2);
+          }
         }
       }
     }

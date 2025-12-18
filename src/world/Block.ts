@@ -10,6 +10,7 @@ export const BlockType = {
   WATER: 6,
   WOOD: 7,
   LEAVES: 8,
+  SNOW: 9,
 } as const;
 
 export type BlockType = (typeof BlockType)[keyof typeof BlockType];
@@ -32,6 +33,7 @@ const blockUVMap: Record<BlockType, BlockUVs> = {
   [BlockType.WATER]: { top: [2, 1], side: [2, 1], bottom: [2, 1] },
   [BlockType.WOOD]: { top: [3, 1], side: [0, 2], bottom: [3, 1] },
   [BlockType.LEAVES]: { top: [1, 2], side: [1, 2], bottom: [1, 2] },
+  [BlockType.SNOW]: { top: [2, 2], side: [2, 2], bottom: [2, 2] },
 };
 
 export function getBlockUVs(blockType: BlockType, face: 'top' | 'side' | 'bottom'): [number, number, number, number] {
@@ -52,3 +54,10 @@ export function isBlockTransparent(blockType: BlockType): boolean {
 export function isBlockWater(blockType: BlockType): boolean {
   return blockType === BlockType.WATER;
 }
+
+export function isBlockSnow(blockType: BlockType): boolean {
+  return blockType === BlockType.SNOW;
+}
+
+// snow layer height (5 pixels out of 16)
+export const SNOW_HEIGHT = 5 / 16;

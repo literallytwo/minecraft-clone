@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH } from '../utils/constants';
-import { BlockType, getBlockUVs, isBlockTransparent, isBlockWater } from './Block';
+import { BlockType, getBlockUVs, isBlockTransparent, isBlockWater, isBlockSnow, SNOW_HEIGHT } from './Block';
 import { terrainGenerator } from './TerrainGenerator';
 import { textureManager } from '../rendering/TextureManager';
 
@@ -156,10 +156,13 @@ export class Chunk {
             }
           } else {
             // solid block - check each face and add if adjacent block is transparent
-            // +y (top)
-            if (isBlockTransparent(this.getBlock(x, y + 1, z))) {
+            // snow uses partial height
+            const topY = isBlockSnow(blockType) ? y + SNOW_HEIGHT : y + 1;
+
+            // +y (top) - snow always shows top since it's shorter than a full block
+            if (isBlockTransparent(this.getBlock(x, y + 1, z)) || isBlockSnow(blockType)) {
               this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x, y + 1, z + 1, x + 1, y + 1, z + 1, x + 1, y + 1, z, x, y + 1, z,
+                x, topY, z + 1, x + 1, topY, z + 1, x + 1, topY, z, x, topY, z,
                 0, 1, 0, blockType, 'top', x, y, z, false);
               solidVertexIndex += 4;
             }
@@ -173,28 +176,28 @@ export class Chunk {
             // +z (front)
             if (isBlockTransparent(this.getBlock(x, y, z + 1))) {
               this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x, y, z + 1, x + 1, y, z + 1, x + 1, y + 1, z + 1, x, y + 1, z + 1,
+                x, y, z + 1, x + 1, y, z + 1, x + 1, topY, z + 1, x, topY, z + 1,
                 0, 0, 1, blockType, 'side', x, y, z, false);
               solidVertexIndex += 4;
             }
             // -z (back)
             if (isBlockTransparent(this.getBlock(x, y, z - 1))) {
               this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x + 1, y, z, x, y, z, x, y + 1, z, x + 1, y + 1, z,
+                x + 1, y, z, x, y, z, x, topY, z, x + 1, topY, z,
                 0, 0, -1, blockType, 'side', x, y, z, false);
               solidVertexIndex += 4;
             }
             // +x (right)
             if (isBlockTransparent(this.getBlock(x + 1, y, z))) {
               this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x + 1, y, z + 1, x + 1, y, z, x + 1, y + 1, z, x + 1, y + 1, z + 1,
+                x + 1, y, z + 1, x + 1, y, z, x + 1, topY, z, x + 1, topY, z + 1,
                 1, 0, 0, blockType, 'side', x, y, z, false);
               solidVertexIndex += 4;
             }
             // -x (left)
             if (isBlockTransparent(this.getBlock(x - 1, y, z))) {
               this.addFace(solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                x, y, z, x, y, z + 1, x, y + 1, z + 1, x, y + 1, z,
+                x, y, z, x, y, z + 1, x, topY, z + 1, x, topY, z,
                 -1, 0, 0, blockType, 'side', x, y, z, false);
               solidVertexIndex += 4;
             }
