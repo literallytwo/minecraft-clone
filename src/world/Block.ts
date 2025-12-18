@@ -98,5 +98,9 @@ export function getBlockHeight(blockType: BlockType): number {
   return blockRegistry[blockType].height;
 }
 
+export function isPartialBlock(blockType: BlockType): boolean {
+  return blockRegistry[blockType].height < 1 && blockType !== BlockType.AIR;
+}
+
 // kept for backwards compat, use getBlockHeight() for new code
 export const SNOW_HEIGHT = 5 / 16;

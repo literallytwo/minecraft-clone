@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RenderLayer } from '../utils/constants';
-import { BlockType, getBlockUVs, isBlockTransparent, isBlockWater, isBlockSnow, getBlockHeight } from './Block';
+import { BlockType, getBlockUVs, isBlockTransparent, isBlockWater, isBlockSnow, getBlockHeight, isPartialBlock } from './Block';
 import { terrainGenerator } from './TerrainGenerator';
 import { textureManager } from '../rendering/TextureManager';
 
@@ -124,14 +124,22 @@ export class Chunk {
           for (const face of FACES) {
             const [dx, dy, dz] = face.dir;
             const neighbor = this.getBlock(x + dx, y + dy, z + dz);
+            const neighborHeight = getBlockHeight(neighbor);
 
             // determine if face should be visible
             let visible: boolean;
+            let partialFaceMinY: number | null = null; // for partial face rendering
+
             if (isWater) {
               visible = neighbor === BlockType.AIR;
             } else if (dy === 1 && isSnow) {
               // snow always shows top face (shorter than full block)
               visible = true;
+            } else if (dy === 0 && height === 1 && isPartialBlock(neighbor)) {
+              // horizontal face of full block next to partial block
+              // render partial face from neighbor's height to 1
+              visible = true;
+              partialFaceMinY = neighborHeight;
             } else {
               visible = isBlockTransparent(neighbor);
             }
@@ -139,11 +147,23 @@ export class Chunk {
             if (!visible) continue;
 
             // transform vertices: scale y by block height
-            const v = face.verts.map(([vx, vy, vz]) => [
-              x + vx,
-              y + vy * height,
-              z + vz,
-            ]) as [[number, number, number], [number, number, number], [number, number, number], [number, number, number]];
+            // if partialFaceMinY is set, we're rendering a partial face
+            let v: [[number, number, number], [number, number, number], [number, number, number], [number, number, number]];
+
+            if (partialFaceMinY !== null) {
+              // partial face: bottom verts start at neighbor height, top verts at 1
+              v = face.verts.map(([vx, vy, vz]) => [
+                x + vx,
+                y + (vy === 0 ? partialFaceMinY : 1),
+                z + vz,
+              ]) as typeof v;
+            } else {
+              v = face.verts.map(([vx, vy, vz]) => [
+                x + vx,
+                y + vy * height,
+                z + vz,
+              ]) as typeof v;
+            }
 
             if (isWater) {
               this.addFace(
@@ -154,7 +174,8 @@ export class Chunk {
             } else {
               this.addFace(
                 solidPositions, solidNormals, solidUvs, solidColors, solidIndices, solidVertexIndex,
-                v, face.dir, face.brightness, blockType, face.uvFace, x, y, z, false
+                v, face.dir, face.brightness, blockType, face.uvFace, x, y, z, false,
+                partialFaceMinY ?? undefined
               );
               solidVertexIndex += 4;
             }
@@ -269,7 +290,8 @@ export class Chunk {
     faceBrightness: number,
     blockType: BlockType, uvFace: 'top' | 'side' | 'bottom',
     blockX: number, blockY: number, blockZ: number,
-    isWater: boolean
+    isWater: boolean,
+    partialFaceMinY?: number
   ): void {
     const [nx, ny, nz] = normal;
 
@@ -284,13 +306,28 @@ export class Chunk {
     }
 
     // uvs from texture atlas
-    const [u1, v1, u2, v2] = getBlockUVs(blockType, uvFace);
+    let [u1, v1, u2, v2] = getBlockUVs(blockType, uvFace);
+
+    // for partial faces, adjust UVs to show only the exposed portion of texture
+    if (partialFaceMinY !== undefined) {
+      const uvHeight = v2 - v1;
+      v1 = v1 + uvHeight * partialFaceMinY;
+    }
+
     uvs.push(u1, v1, u2, v1, u2, v2, u1, v2);
 
     // calculate vertex colors with AO
+    // for partial faces, use original full-face vertex Y positions for AO calculation
+    // so shading is consistent with the rest of the block
     const aoValues: number[] = [];
-    for (const [vx, vy, vz] of verts) {
-      const ao = isWater ? 0 : this.calculateVertexAO(blockX, blockY, blockZ, nx, ny, nz, vx, vy, vz);
+    for (let i = 0; i < verts.length; i++) {
+      const [vx, vy, vz] = verts[i];
+      let aoVy = vy;
+      if (partialFaceMinY !== undefined) {
+        // map partial face vertex Y back to full face positions (0 or 1)
+        aoVy = vy === blockY + partialFaceMinY ? blockY : vy;
+      }
+      const ao = isWater ? 0 : this.calculateVertexAO(blockX, blockY, blockZ, nx, ny, nz, vx, aoVy, vz);
       aoValues.push(ao);
       const brightness = faceBrightness * AO_CURVE[ao];
       colors.push(brightness, brightness, brightness);
