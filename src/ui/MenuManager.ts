@@ -1,26 +1,36 @@
 import { gameState } from '../state/GameState';
 import type { GameStateType } from '../state/GameState';
 import { gameScene } from '../rendering/Scene';
+import { hashSeed } from '../utils/seedHash';
+import { terrainGenerator } from '../world/TerrainGenerator';
 
 class MenuManager {
   private mainMenuEl: HTMLElement;
   private pauseMenuEl: HTMLElement;
   private crosshairEl: HTMLElement;
   private coordsEl: HTMLElement;
+  private seedInputEl: HTMLInputElement;
 
   constructor() {
     this.mainMenuEl = document.getElementById('main-menu')!;
     this.pauseMenuEl = document.getElementById('pause-menu')!;
     this.crosshairEl = document.getElementById('crosshair')!;
     this.coordsEl = document.getElementById('coords')!;
+    this.seedInputEl = document.getElementById('seed-field') as HTMLInputElement;
 
     this.setupEventListeners();
     gameState.onStateChange(this.updateUI.bind(this));
   }
 
+  private generateRandomSeed(): string {
+    return Math.floor(Math.random() * 10000000000).toString();
+  }
+
   private setupEventListeners(): void {
     // singleplayer button starts the game
     document.getElementById('btn-singleplayer')!.addEventListener('click', () => {
+      const seedString = this.seedInputEl.value.trim() || this.generateRandomSeed();
+      terrainGenerator.setSeed(hashSeed(seedString));
       gameState.setState('playing');
       this.requestPointerLock();
     });
@@ -54,6 +64,7 @@ class MenuManager {
     switch (state) {
       case 'main_menu':
         this.mainMenuEl.style.display = 'block';
+        this.seedInputEl.value = this.generateRandomSeed();
         break;
       case 'paused':
         this.pauseMenuEl.style.display = 'block';

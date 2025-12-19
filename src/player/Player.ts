@@ -63,12 +63,10 @@ class Player extends Entity {
   }
 
   spawn(): void {
-    // spawn in center of starting chunk to avoid edge issues
-    const spawnX = 8.5;
-    const spawnZ = 8.5;
-    const spawnY = world.getSpawnHeight(spawnX, spawnZ);
+    // find safe spawn near center of starting chunk
+    const spawn = world.findSafeSpawn(8.5, 8.5);
     // spawn 3 blocks above ground, gravity will bring us down safely
-    this.position.set(spawnX, spawnY + 3, spawnZ);
+    this.position.set(spawn.x, spawn.y + 3, spawn.z);
     this.velocity.set(0, 0, 0);
     this.grounded = false;
   }

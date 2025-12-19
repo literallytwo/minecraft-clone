@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Chunk, type WorldBlockGetter } from './Chunk';
 import { BlockType, isBlockSolid, isBlockWater } from './Block';
-import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RENDER_DISTANCE } from '../utils/constants';
+import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RENDER_DISTANCE, SEA_LEVEL } from '../utils/constants';
 import { terrainGenerator } from './TerrainGenerator';
 import { gameScene } from '../rendering/Scene';
 
@@ -187,6 +187,57 @@ class World {
       }
     }
     return 30;
+  }
+
+  // find a safe spawn position near given coordinates
+  // searches in spiral pattern, returns position with solid ground + 2 air blocks above
+  findSafeSpawn(startX: number, startZ: number, maxRadius: number = 64): { x: number; y: number; z: number } {
+    let x = Math.floor(startX);
+    let z = Math.floor(startZ);
+    let dx = 0, dz = -1;
+    let stepsInDirection = 1, stepsTaken = 0, turnCount = 0;
+
+    for (let i = 0; i < maxRadius * maxRadius * 4; i++) {
+      if (this.isSpawnSafe(x, z)) {
+        const groundY = this.getSpawnHeight(x + 0.5, z + 0.5);
+        return { x: x + 0.5, y: groundY, z: z + 0.5 };
+      }
+
+      // spiral movement
+      x += dx;
+      z += dz;
+      stepsTaken++;
+
+      if (stepsTaken >= stepsInDirection) {
+        stepsTaken = 0;
+        const temp = dx;
+        dx = -dz;
+        dz = temp;
+        turnCount++;
+        if (turnCount % 2 === 0) stepsInDirection++;
+      }
+
+      if (Math.abs(x - startX) > maxRadius || Math.abs(z - startZ) > maxRadius) break;
+    }
+
+    // fallback to starting position
+    return { x: startX, y: this.getSpawnHeight(startX, startZ), z: startZ };
+  }
+
+  private isSpawnSafe(x: number, z: number): boolean {
+    const surfaceY = terrainGenerator.getHeight(x, z);
+
+    // dont spawn underwater
+    if (surfaceY < SEA_LEVEL) return false;
+
+    // check solid ground
+    const ground = terrainGenerator.getBlock(x, surfaceY, z);
+    if (!isBlockSolid(ground)) return false;
+
+    // need 2 blocks of air above (player is 1.8 tall)
+    const above1 = terrainGenerator.getBlock(x, surfaceY + 1, z);
+    const above2 = terrainGenerator.getBlock(x, surfaceY + 2, z);
+    return above1 === BlockType.AIR && above2 === BlockType.AIR;
   }
 
   // reset the world - clears all chunks

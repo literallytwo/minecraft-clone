@@ -3,16 +3,24 @@ import { BlockType } from './Block';
 import { SEA_LEVEL } from '../utils/constants';
 
 class TerrainGenerator {
-  private noise2D: NoiseFunction2D;
-  private noise3D: NoiseFunction3D;
+  private noise2D!: NoiseFunction2D;
+  private noise3D!: NoiseFunction3D;
   private seed: number;
 
   constructor(seed?: number) {
     this.seed = seed ?? Math.random() * 10000;
-    // simplex-noise uses a random function for seeding
+    this.initNoise();
+  }
+
+  private initNoise(): void {
     const seededRandom = this.createSeededRandom(this.seed);
     this.noise2D = createNoise2D(seededRandom);
     this.noise3D = createNoise3D(seededRandom);
+  }
+
+  setSeed(seed: number): void {
+    this.seed = seed;
+    this.initNoise();
   }
 
   private createSeededRandom(seed: number): () => number {
@@ -81,4 +89,4 @@ class TerrainGenerator {
   }
 }
 
-export const terrainGenerator = new TerrainGenerator(12345);
+export const terrainGenerator = new TerrainGenerator();
