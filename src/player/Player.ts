@@ -17,6 +17,8 @@ class Player extends Entity {
     // block placement/breaking
     document.addEventListener('mousedown', (e) => {
       if (!controls.isLocked) return;
+      // edge world: no block interaction
+      if (edgeWorldState.isEdgeWorld) return;
 
       const rayResult = world.raycast(
         gameScene.camera.position,

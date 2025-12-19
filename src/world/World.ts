@@ -29,11 +29,15 @@ class World {
   private getBlockForChunk(worldX: number, worldY: number, worldZ: number): BlockType {
     // handle Y bounds
     if (worldY < 0 || worldY >= CHUNK_HEIGHT) {
+      // edge world: treat void as air so faces render at chunk edges
+      if (edgeWorldState.isEdgeWorld) return BlockType.AIR;
       return terrainGenerator.getBlock(worldX, worldY, worldZ);
     }
     const [chunkX, chunkZ, localX, localY, localZ] = this.worldToLocal(worldX, worldY, worldZ);
     const chunk = this.chunks.get(this.getChunkKey(chunkX, chunkZ));
     if (!chunk) {
+      // edge world: return AIR so chunk edge faces are visible
+      if (edgeWorldState.isEdgeWorld) return BlockType.AIR;
       // chunk not loaded, use terrain generator as fallback
       return terrainGenerator.getBlock(worldX, worldY, worldZ);
     }
