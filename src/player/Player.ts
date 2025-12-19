@@ -4,7 +4,7 @@ import { gameScene } from '../rendering/Scene';
 import { world } from '../world/World';
 import { BlockType, isBlockReplaceable } from '../world/Block';
 import { MOVE_SPEED, JUMP_FORCE, EYE_HEIGHT, WATER_MOVE_SPEED, SWIM_UP_ACCELERATION, SWIM_DOWN_ACCELERATION, PLAYER_WIDTH, PLAYER_HEIGHT } from '../utils/constants';
-import { toBlockPos } from '../utils/coords';
+import { toBlockPos, getBlockBounds } from '../utils/coords';
 import { Entity } from '../entities/Entity';
 import { edgeWorldState } from '../state/EdgeWorldState';
 
@@ -36,19 +36,29 @@ class Player extends Entity {
           BlockType.AIR
         );
       } else if (e.button === 2 && rayResult.placePos) {
-        // right click - place block (only if target is replaceable)
+        // right click - place block (only if target is replaceable and doesn't overlap player)
         const targetBlock = world.getBlock(
           rayResult.placePos.x,
           rayResult.placePos.y,
           rayResult.placePos.z
         );
-        if (isBlockReplaceable(targetBlock)) {
-          world.setBlock(
-            rayResult.placePos.x,
-            rayResult.placePos.y,
-            rayResult.placePos.z,
-            this.selectedBlock
-          );
+
+        const playerBounds = getBlockBounds(
+          this.position,
+          this.bounds.width / 2,
+          this.bounds.height
+        );
+        const placeX = rayResult.placePos.x;
+        const placeY = rayResult.placePos.y;
+        const placeZ = rayResult.placePos.z;
+
+        const overlapsPlayer =
+          placeX >= playerBounds.minX && placeX <= playerBounds.maxX &&
+          placeY >= playerBounds.minY && placeY <= playerBounds.maxY &&
+          placeZ >= playerBounds.minZ && placeZ <= playerBounds.maxZ;
+
+        if (isBlockReplaceable(targetBlock) && !overlapsPlayer) {
+          world.setBlock(placeX, placeY, placeZ, this.selectedBlock);
         }
       }
     });
