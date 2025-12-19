@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { gameScene } from '../rendering/Scene';
 import { gameState } from '../state/GameState';
+import { edgeWorldState } from '../state/EdgeWorldState';
 
 class Controls {
   private keys: Set<string> = new Set();
@@ -25,15 +26,26 @@ class Controls {
       this.isLocked = document.pointerLockElement === gameScene.renderer.domElement;
 
       // if pointer lock was lost while playing, go to paused state
+      // edge world: menu is disabled, try to reacquire lock
       if (!this.isLocked && gameState.isPlaying()) {
-        gameState.setState('paused');
+        if (edgeWorldState.isEdgeWorld) {
+          // try to reacquire pointer lock in edge world
+          setTimeout(() => {
+            if (gameState.isPlaying() && edgeWorldState.isEdgeWorld) {
+              gameScene.renderer.domElement.requestPointerLock();
+            }
+          }, 100);
+        } else {
+          gameState.setState('paused');
+        }
       }
     });
 
     // ESC key handling - browser automatically exits pointer lock on ESC,
     // but we need to ensure we go to paused (not main menu)
+    // edge world: menu is disabled, can only escape by falling into void
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Escape' && gameState.isPlaying()) {
+      if (e.code === 'Escape' && gameState.isPlaying() && !edgeWorldState.isEdgeWorld) {
         // browser will handle exiting pointer lock, we just ensure state is set
         gameState.setState('paused');
       }

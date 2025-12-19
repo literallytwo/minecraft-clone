@@ -30,9 +30,10 @@ export const ATLAS_SIZE = 4;
 export const TILE_SIZE = 1 / ATLAS_SIZE;
 
 // render order layers (higher = rendered later/on top)
+// particles render before water so water can blend on top (see-through effect)
 export const RenderLayer = {
   SOLID: 0,
-  WATER: 1,
-  PARTICLES: 2,
+  PARTICLES: 1,
+  WATER: 2,
   OVERLAY: 999,
 } as const;

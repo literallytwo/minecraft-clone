@@ -3,6 +3,8 @@ import type { GameStateType } from '../state/GameState';
 import { gameScene } from '../rendering/Scene';
 import { hashSeed } from '../utils/seedHash';
 import { terrainGenerator } from '../world/TerrainGenerator';
+import { edgeWorldState } from '../state/EdgeWorldState';
+import { audioManager } from '../audio/AudioManager';
 
 class MenuManager {
   private mainMenuEl: HTMLElement;
@@ -29,8 +31,17 @@ class MenuManager {
   private setupEventListeners(): void {
     // singleplayer button starts the game
     document.getElementById('btn-singleplayer')!.addEventListener('click', () => {
+      // roll for edge world (1/10,000 chance, independent of seed)
+      edgeWorldState.roll();
+
       const seedString = this.seedInputEl.value.trim() || this.generateRandomSeed();
       terrainGenerator.setSeed(hashSeed(seedString));
+
+      // start eerie music if edge world
+      if (edgeWorldState.isEdgeWorld) {
+        audioManager.playLoop('sounds/edgeofauniverse.mp3');
+      }
+
       gameState.setState('playing');
       this.requestPointerLock();
     });

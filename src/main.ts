@@ -6,6 +6,8 @@ import { player } from './player/Player';
 import { gameState } from './state/GameState';
 import { menuManager } from './ui/MenuManager';
 import { WinterEffects } from './effects/WinterEffects';
+import { edgeWorldState } from './state/EdgeWorldState';
+import { audioManager } from './audio/AudioManager';
 
 async function init() {
   const loadingEl = document.getElementById('loading')!;
@@ -31,7 +33,10 @@ async function init() {
     if (state === 'playing' && !worldInitialized) {
       world.update(0, 0);
       player.spawn();
-      winterEffects = new WinterEffects();
+      // edge world: no snow
+      if (!edgeWorldState.isEdgeWorld) {
+        winterEffects = new WinterEffects();
+      }
       worldInitialized = true;
     }
 
@@ -42,6 +47,9 @@ async function init() {
       winterEffects?.dispose();
       winterEffects = null;
       worldInitialized = false;
+      // cleanup edge world state and audio
+      audioManager.stop();
+      edgeWorldState.reset();
     }
   });
 
@@ -56,6 +64,11 @@ async function init() {
       player.update(deltaTime);
       world.update(player.position.x, player.position.z);
       winterEffects?.update(deltaTime, currentTime, player.position);
+
+      // edge world: void check - falling to Y < -100 returns to main menu
+      if (edgeWorldState.isEdgeWorld && player.position.y < -100) {
+        gameState.setState('main_menu');
+      }
 
       // update coords display
       coordsEl.textContent =

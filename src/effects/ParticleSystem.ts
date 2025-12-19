@@ -43,7 +43,8 @@ export abstract class ParticleSystem implements Disposable {
       size: config.particleSize,
       transparent: true,
       opacity: config.opacity,
-      depthWrite: false,
+      depthWrite: true,
+      alphaTest: 0.1,
       sizeAttenuation: true,
     });
 

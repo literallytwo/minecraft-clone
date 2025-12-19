@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { Chunk, type WorldBlockGetter } from './Chunk';
-import { BlockType, isBlockSolid, isBlockWater } from './Block';
+import { BlockType, isBlockSolid, isBlockWater, isBlockSupport, blockNeedsSupport, getBlockSupportDirections } from './Block';
 import { CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_DEPTH, RENDER_DISTANCE, SEA_LEVEL } from '../utils/constants';
 import { terrainGenerator } from './TerrainGenerator';
 import { gameScene } from '../rendering/Scene';
+import { edgeWorldState } from '../state/EdgeWorldState';
 
 class World {
   private chunks: Map<string, Chunk> = new Map();
@@ -11,6 +12,13 @@ class World {
 
   // bound function for chunks to query cross-chunk block state
   private worldBlockGetter: WorldBlockGetter = this.getBlockForChunk.bind(this);
+
+  // directions to check for dependent blocks when a block is broken
+  private static readonly ADJACENT_DIRECTIONS: Array<[number, number, number]> = [
+    [0, 1, 0], [0, -1, 0],
+    [1, 0, 0], [-1, 0, 0],
+    [0, 0, 1], [0, 0, -1],
+  ];
 
   private getChunkKey(chunkX: number, chunkZ: number): string {
     return `${chunkX},${chunkZ}`;
@@ -67,7 +75,21 @@ class World {
     if (!chunk) return;
 
     chunk.setBlock(localX, localY, localZ, blockType);
-    chunk.buildMesh();
+
+    // track chunks needing rebuild (for cascade across chunk boundaries)
+    const chunksToRebuild = new Set<string>();
+    chunksToRebuild.add(this.getChunkKey(chunkX, chunkZ));
+
+    // if block removed, check for unsupported dependents
+    if (blockType === BlockType.AIR) {
+      this.breakUnsupportedBlocks(worldX, worldY, worldZ, chunksToRebuild);
+    }
+
+    // rebuild all affected chunks
+    for (const key of chunksToRebuild) {
+      const c = this.chunks.get(key);
+      if (c) c.buildMesh();
+    }
 
     // rebuild adjacent chunks if on edge
     if (localX === 0) this.rebuildChunk(chunkX - 1, chunkZ);
@@ -81,8 +103,60 @@ class World {
     if (chunk) chunk.buildMesh();
   }
 
+  private breakUnsupportedBlocks(brokenX: number, brokenY: number, brokenZ: number, chunksToRebuild: Set<string>): void {
+    for (const [dx, dy, dz] of World.ADJACENT_DIRECTIONS) {
+      const checkX = brokenX + dx;
+      const checkY = brokenY + dy;
+      const checkZ = brokenZ + dz;
+
+      const block = this.getBlock(checkX, checkY, checkZ);
+
+      if (blockNeedsSupport(block) && !this.hasValidSupport(checkX, checkY, checkZ, block)) {
+        this.breakBlockWithCascade(checkX, checkY, checkZ, chunksToRebuild);
+      }
+    }
+  }
+
+  private hasValidSupport(worldX: number, worldY: number, worldZ: number, blockType: BlockType): boolean {
+    const supportDirs = getBlockSupportDirections(blockType);
+
+    for (const [dx, dy, dz] of supportDirs) {
+      const supportBlock = this.getBlock(worldX + dx, worldY + dy, worldZ + dz);
+      if (isBlockSupport(supportBlock)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private breakBlockWithCascade(worldX: number, worldY: number, worldZ: number, chunksToRebuild: Set<string>): void {
+    const [chunkX, chunkZ, localX, localY, localZ] = this.worldToLocal(worldX, worldY, worldZ);
+    const chunk = this.chunks.get(this.getChunkKey(chunkX, chunkZ));
+    if (!chunk) return;
+
+    chunk.setBlock(localX, localY, localZ, BlockType.AIR);
+    chunksToRebuild.add(this.getChunkKey(chunkX, chunkZ));
+
+    // recursively check dependents
+    this.breakUnsupportedBlocks(worldX, worldY, worldZ, chunksToRebuild);
+  }
+
   // update chunks around player position
   update(playerX: number, playerZ: number): void {
+    // edge world: only generate chunk (0, 0)
+    if (edgeWorldState.isEdgeWorld) {
+      const key = this.getChunkKey(0, 0);
+      if (!this.chunks.has(key)) {
+        const chunk = new Chunk(0, 0, this.worldBlockGetter);
+        chunk.buildMesh();
+        this.chunks.set(key, chunk);
+        if (chunk.mesh) gameScene.add(chunk.mesh);
+        if (chunk.waterMesh) gameScene.add(chunk.waterMesh);
+      }
+      return;
+    }
+
     const [playerChunkX, playerChunkZ] = this.worldToChunk(playerX, playerZ);
 
     // load chunks in range

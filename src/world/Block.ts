@@ -23,6 +23,9 @@ type BlockProperties = {
   fluid: boolean;
   replaceable: boolean; // can place blocks on top without breaking first (air, water, snow)
   height: number; // 1 = full block, <1 = partial (like snow)
+  isSupport?: boolean; // can this block support others? (default true)
+  needsSupport?: boolean; // does this block require support to exist? (default false)
+  supportDirections?: Array<[number, number, number]>; // which directions provide valid support
 };
 
 const blockRegistry: Record<BlockType, BlockProperties> = {
@@ -65,6 +68,8 @@ const blockRegistry: Record<BlockType, BlockProperties> = {
   [BlockType.SNOW]: {
     uvs: { top: [2, 2], side: [2, 2], bottom: [2, 2] },
     solid: false, transparent: false, fluid: false, replaceable: false, height: 2 / 16,
+    needsSupport: true,
+    supportDirections: [[0, -1, 0]], // only supported from below
   },
 };
 
@@ -105,6 +110,19 @@ export function getBlockHeight(blockType: BlockType): number {
 
 export function isPartialBlock(blockType: BlockType): boolean {
   return blockRegistry[blockType].height < 1 && blockType !== BlockType.AIR;
+}
+
+export function isBlockSupport(blockType: BlockType): boolean {
+  if (blockType === BlockType.AIR) return false;
+  return blockRegistry[blockType].isSupport ?? true;
+}
+
+export function blockNeedsSupport(blockType: BlockType): boolean {
+  return blockRegistry[blockType].needsSupport ?? false;
+}
+
+export function getBlockSupportDirections(blockType: BlockType): Array<[number, number, number]> {
+  return blockRegistry[blockType].supportDirections ?? [];
 }
 
 // kept for backwards compat, use getBlockHeight() for new code

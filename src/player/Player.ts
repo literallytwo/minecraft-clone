@@ -6,6 +6,7 @@ import { BlockType, isBlockReplaceable } from '../world/Block';
 import { MOVE_SPEED, JUMP_FORCE, EYE_HEIGHT, WATER_MOVE_SPEED, SWIM_UP_ACCELERATION, SWIM_DOWN_ACCELERATION, PLAYER_WIDTH, PLAYER_HEIGHT } from '../utils/constants';
 import { toBlockPos } from '../utils/coords';
 import { Entity } from '../entities/Entity';
+import { edgeWorldState } from '../state/EdgeWorldState';
 
 class Player extends Entity {
   selectedBlock: BlockType = BlockType.DIRT;
@@ -77,20 +78,23 @@ class Player extends Entity {
     // get movement input
     const input = controls.getMovementInput();
 
+    // edge world: 1/4 speed
+    const speedMultiplier = edgeWorldState.isEdgeWorld ? 0.25 : 1;
+
     if (inWater) {
       // swim up with space
       if (controls.wantsJump()) {
-        this.velocity.y += SWIM_UP_ACCELERATION * deltaTime;
+        this.velocity.y += SWIM_UP_ACCELERATION * deltaTime * speedMultiplier;
       }
 
       // swim down with shift
       if (controls.wantsSwimDown()) {
-        this.velocity.y -= SWIM_DOWN_ACCELERATION * deltaTime;
+        this.velocity.y -= SWIM_DOWN_ACCELERATION * deltaTime * speedMultiplier;
       }
 
       // horizontal movement in water
-      this.velocity.x += input.x * WATER_MOVE_SPEED * deltaTime;
-      this.velocity.z += input.z * WATER_MOVE_SPEED * deltaTime;
+      this.velocity.x += input.x * WATER_MOVE_SPEED * deltaTime * speedMultiplier;
+      this.velocity.z += input.z * WATER_MOVE_SPEED * deltaTime * speedMultiplier;
 
       // apply water physics (drag, clamping)
       applyWaterPhysics(this.velocity, deltaTime);
@@ -99,8 +103,8 @@ class Player extends Entity {
       this.applyGravity(deltaTime);
 
       // apply horizontal movement
-      this.velocity.x = input.x * MOVE_SPEED;
-      this.velocity.z = input.z * MOVE_SPEED;
+      this.velocity.x = input.x * MOVE_SPEED * speedMultiplier;
+      this.velocity.z = input.z * MOVE_SPEED * speedMultiplier;
 
       // jump
       if (controls.wantsJump() && this.grounded) {
